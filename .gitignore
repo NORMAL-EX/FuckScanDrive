@@ -1,0 +1,7 @@
+/target/
+Cargo.lock
+*.dll
+*.exe
+*.pdb
+*.log
+fuck.ini.backup
