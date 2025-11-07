@@ -8,7 +8,7 @@ use std::ptr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HANDLE, NTSTATUS, STATUS_ACCESS_DENIED, UNICODE_STRING};
-use windows::Win32::Storage::FileSystem::{FILE_ACCESS_FLAGS, FILE_SHARE_MODE};
+use windows::Win32::Storage::FileSystem::{FILE_ACCESS_RIGHTS, FILE_SHARE_MODE};
 use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
 use windows::Win32::System::Memory::{VirtualProtect, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS};
 
@@ -33,7 +33,7 @@ struct IO_STATUS_BLOCK {
 
 type NtCreateFileFunc = unsafe extern "system" fn(
     FileHandle: *mut HANDLE,
-    DesiredAccess: FILE_ACCESS_FLAGS,
+    DesiredAccess: FILE_ACCESS_RIGHTS,
     ObjectAttributes: *mut OBJECT_ATTRIBUTES,
     IoStatusBlock: *mut IO_STATUS_BLOCK,
     AllocationSize: *mut i64,
@@ -47,7 +47,7 @@ type NtCreateFileFunc = unsafe extern "system" fn(
 
 type NtOpenFileFunc = unsafe extern "system" fn(
     FileHandle: *mut HANDLE,
-    DesiredAccess: FILE_ACCESS_FLAGS,
+    DesiredAccess: FILE_ACCESS_RIGHTS,
     ObjectAttributes: *mut OBJECT_ATTRIBUTES,
     IoStatusBlock: *mut IO_STATUS_BLOCK,
     ShareAccess: FILE_SHARE_MODE,
@@ -62,7 +62,7 @@ static mut NT_OPEN_FILE_TRAMPOLINE: [u8; 64] = [0; 64];
 
 unsafe extern "system" fn hooked_nt_create_file(
     file_handle: *mut HANDLE,
-    desired_access: FILE_ACCESS_FLAGS,
+    desired_access: FILE_ACCESS_RIGHTS,
     object_attributes: *mut OBJECT_ATTRIBUTES,
     io_status_block: *mut IO_STATUS_BLOCK,
     allocation_size: *mut i64,
@@ -135,7 +135,7 @@ unsafe extern "system" fn hooked_nt_create_file(
 
 unsafe extern "system" fn hooked_nt_open_file(
     file_handle: *mut HANDLE,
-    desired_access: FILE_ACCESS_FLAGS,
+    desired_access: FILE_ACCESS_RIGHTS,
     object_attributes: *mut OBJECT_ATTRIBUTES,
     io_status_block: *mut IO_STATUS_BLOCK,
     share_access: FILE_SHARE_MODE,
