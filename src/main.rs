@@ -123,13 +123,11 @@ impl ProtectionEngine {
 
                     if let Err(e) = self.configure_dll_for_process(process.pid, rule) {
                         self.state.set_status(format!(
-                            "Failed to configure DLL for {} (PID: {}): {}",
+                            "Failed to configure DLL for {} (PID: {}): {}. Process continues without protection.",
                             process.name, process.pid, e
                         ));
 
-                        if ProcessMonitor::terminate_process(process.pid).is_ok() {
-                            self.state.increment_block_count(process.name.clone());
-                        }
+                        self.injected_processes.insert(process.pid);
                     } else {
                         self.injected_processes.insert(process.pid);
 
@@ -139,20 +137,18 @@ impl ProtectionEngine {
                         self.state.increment_block_count(process.name.clone());
 
                         self.state.set_status(format!(
-                            "Successfully injected into {} (PID: {})",
+                            "Successfully injected and protecting {} (PID: {})",
                             process.name, process.pid
                         ));
                     }
                 }
                 Err(e) => {
                     self.state.set_status(format!(
-                        "Injection failed for {} (PID: {}): {}. Terminating...",
+                        "Injection failed for {} (PID: {}): {}. Process continues without protection.",
                         process.name, process.pid, e
                     ));
 
-                    if ProcessMonitor::terminate_process(process.pid).is_ok() {
-                        self.state.increment_block_count(process.name.clone());
-                    }
+                    self.injected_processes.insert(process.pid);
                 }
             }
         }
