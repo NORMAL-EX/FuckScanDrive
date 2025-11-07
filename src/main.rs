@@ -1,3 +1,4 @@
+mod app_config;
 mod config;
 mod gui;
 mod injector;
@@ -128,11 +129,7 @@ impl ProtectionEngine {
                         ));
 
                         if ProcessMonitor::terminate_process(process.pid).is_ok() {
-                            self.state.add_blocked_event(
-                                process.name.clone(),
-                                process.pid,
-                                "Terminated (injection config failed)".to_string(),
-                            );
+                            self.state.increment_block_count(process.name.clone());
                         }
                     } else {
                         self.injected_processes.insert(process.pid);
@@ -140,11 +137,7 @@ impl ProtectionEngine {
                         let mut blocked = self.state.blocked_processes.lock();
                         blocked.push(process.clone());
 
-                        self.state.add_blocked_event(
-                            process.name.clone(),
-                            process.pid,
-                            "Injected and blocked".to_string(),
-                        );
+                        self.state.increment_block_count(process.name.clone());
 
                         self.state.set_status(format!(
                             "Successfully injected into {} (PID: {})",
@@ -159,11 +152,7 @@ impl ProtectionEngine {
                     ));
 
                     if ProcessMonitor::terminate_process(process.pid).is_ok() {
-                        self.state.add_blocked_event(
-                            process.name.clone(),
-                            process.pid,
-                            "Terminated (injection failed)".to_string(),
-                        );
+                        self.state.increment_block_count(process.name.clone());
                     }
                 }
             }
