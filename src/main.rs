@@ -1,10 +1,12 @@
 mod app_config;
 mod config;
+mod driver_comm;
 mod gui;
 mod injector;
 mod process_monitor;
 
 use config::{BlockedDrives, Config};
+use driver_comm::DriverCommunicator;
 use gui::{AppState, run_gui};
 use injector::{get_dll_path, Injector};
 use process_monitor::{ProcessInfo, ProcessMonitor, ProcessWatcher};
@@ -21,12 +23,18 @@ const CONFIG_FILE: &str = "fuck.ini";
 
 type SetBlockedDrivesFunc = extern "C" fn(*const u8, usize);
 
+enum ProtectionMode {
+    Driver(DriverCommunicator),
+    Injection,
+}
+
 struct ProtectionEngine {
     config: Config,
     watcher: ProcessWatcher,
     dll_path: String,
     state: Arc<AppState>,
     injected_processes: HashSet<u32>,
+    mode: ProtectionMode,
 }
 
 impl ProtectionEngine {
@@ -40,12 +48,43 @@ impl ProtectionEngine {
         let watcher = ProcessWatcher::new(target_processes);
         let dll_path = get_dll_path()?;
 
+        // Try to use kernel driver first, fallback to injection mode
+        let mode = match DriverCommunicator::new() {
+            Ok(driver) => {
+                state.set_status("Protection mode: Kernel Driver (Robust)".to_string());
+
+                // Send all rules to the driver
+                for rule in &config.rules {
+                    let (block_all, drives) = match &rule.blocked_drives {
+                        BlockedDrives::All => (true, vec![]),
+                        BlockedDrives::Specific(drive_strs) => {
+                            let drives: Vec<char> = drive_strs.iter()
+                                .flat_map(|s| s.chars())
+                                .collect();
+                            (false, drives)
+                        }
+                    };
+
+                    if let Err(e) = driver.send_rule(&rule.process_name, block_all, &drives) {
+                        eprintln!("Warning: Failed to send rule to driver: {}", e);
+                    }
+                }
+
+                ProtectionMode::Driver(driver)
+            }
+            Err(_) => {
+                state.set_status("Protection mode: DLL Injection (Driver not available)".to_string());
+                ProtectionMode::Injection
+            }
+        };
+
         Ok(ProtectionEngine {
             config,
             watcher,
             dll_path,
             state,
             injected_processes: HashSet::new(),
+            mode,
         })
     }
 
@@ -117,38 +156,58 @@ impl ProtectionEngine {
                 process.name, process.pid
             ));
 
-            match Injector::inject_dll(process.pid, &self.dll_path) {
-                Ok(_) => {
-                    thread::sleep(Duration::from_millis(200));
-
-                    if let Err(e) = self.configure_dll_for_process(process.pid, rule) {
-                        self.state.set_status(format!(
-                            "Failed to configure DLL for {} (PID: {}): {}. Process continues without protection.",
-                            process.name, process.pid, e
-                        ));
-
-                        self.injected_processes.insert(process.pid);
-                    } else {
-                        self.injected_processes.insert(process.pid);
-
-                        let mut blocked = self.state.blocked_processes.lock();
-                        blocked.push(process.clone());
-
-                        self.state.increment_block_count(process.name.clone());
-
-                        self.state.set_status(format!(
-                            "Successfully injected and protecting {} (PID: {})",
-                            process.name, process.pid
-                        ));
-                    }
-                }
-                Err(e) => {
-                    self.state.set_status(format!(
-                        "Injection failed for {} (PID: {}): {}. Process continues without protection.",
-                        process.name, process.pid, e
-                    ));
-
+            match &self.mode {
+                ProtectionMode::Driver(_) => {
+                    // In driver mode, protection is automatic at kernel level
+                    // Just track the process for UI display
                     self.injected_processes.insert(process.pid);
+
+                    let mut blocked = self.state.blocked_processes.lock();
+                    blocked.push(process.clone());
+
+                    self.state.increment_block_count(process.name.clone());
+
+                    self.state.set_status(format!(
+                        "Kernel driver protecting {} (PID: {}) - automatic interception",
+                        process.name, process.pid
+                    ));
+                }
+                ProtectionMode::Injection => {
+                    // In injection mode, inject DLL into target process
+                    match Injector::inject_dll(process.pid, &self.dll_path) {
+                        Ok(_) => {
+                            thread::sleep(Duration::from_millis(200));
+
+                            if let Err(e) = self.configure_dll_for_process(process.pid, rule) {
+                                self.state.set_status(format!(
+                                    "Failed to configure DLL for {} (PID: {}): {}. Process continues without protection.",
+                                    process.name, process.pid, e
+                                ));
+
+                                self.injected_processes.insert(process.pid);
+                            } else {
+                                self.injected_processes.insert(process.pid);
+
+                                let mut blocked = self.state.blocked_processes.lock();
+                                blocked.push(process.clone());
+
+                                self.state.increment_block_count(process.name.clone());
+
+                                self.state.set_status(format!(
+                                    "Successfully injected and protecting {} (PID: {})",
+                                    process.name, process.pid
+                                ));
+                            }
+                        }
+                        Err(e) => {
+                            self.state.set_status(format!(
+                                "Injection failed for {} (PID: {}): {}. Process continues without protection.",
+                                process.name, process.pid, e
+                            ));
+
+                            self.injected_processes.insert(process.pid);
+                        }
+                    }
                 }
             }
         }

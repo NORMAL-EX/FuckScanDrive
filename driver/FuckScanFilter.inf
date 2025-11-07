@@ -1,0 +1,64 @@
+[Version]
+Signature   = "$Windows NT$"
+Class       = "ActivityMonitor"
+ClassGuid   = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
+Provider    = %ProviderString%
+DriverVer   = 11/07/2025,1.0.0.0
+CatalogFile = FuckScanFilter.cat
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir          = 12
+MiniFilter.DriverFiles  = 12
+
+[DefaultInstall.NT]
+OptionDesc          = %ServiceDescription%
+CopyFiles           = MiniFilter.DriverFiles
+
+[DefaultInstall.NT.Services]
+AddService          = %ServiceName%,,MiniFilter.Service
+
+[DefaultUninstall.NT]
+LegacyUninstall=1
+DelFiles   = MiniFilter.DriverFiles
+
+[DefaultUninstall.NT.Services]
+DelService = %ServiceName%,0x200
+
+[MiniFilter.Service]
+DisplayName      = %ServiceName%
+Description      = %ServiceDescription%
+ServiceBinary    = %12%\%DriverName%.sys
+Dependencies     = "FltMgr"
+ServiceType      = 2
+StartType        = 3
+ErrorControl     = 1
+LoadOrderGroup   = "FSFilter Activity Monitor"
+AddReg           = MiniFilter.AddRegistry
+
+[MiniFilter.AddRegistry]
+HKR,,"DebugFlags",0x00010001 ,0x0
+HKR,,"SupportedFeatures",0x00010001,0x3
+HKR,"Instances","DefaultInstance",0x00000000,%DefaultInstance%
+HKR,"Instances\"%Instance1.Name%,"Altitude",0x00000000,%Instance1.Altitude%
+HKR,"Instances\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%
+
+[MiniFilter.DriverFiles]
+%DriverName%.sys
+
+[SourceDisksFiles]
+FuckScanFilter.sys = 1,,
+
+[SourceDisksNames]
+1 = %DiskId1%,,,
+
+[Strings]
+ProviderString          = "FuckScanDrive"
+ServiceName             = "FuckScanFilter"
+DriverName              = "FuckScanFilter"
+DiskId1                 = "FuckScanFilter Device Installation Disk"
+ServiceDescription      = "FuckScanDrive Minifilter Driver"
+DefaultInstance         = "FuckScanFilter Instance"
+Instance1.Name          = "FuckScanFilter Instance"
+Instance1.Altitude      = "370030"
+Instance1.Flags         = 0x0
