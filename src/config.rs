@@ -29,6 +29,7 @@ impl BlockedDrives {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Config {
     pub rules: Vec<ProcessRule>,
 }

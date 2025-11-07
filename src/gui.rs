@@ -125,14 +125,14 @@ impl FuckScanDriveApp {
     fn create_tray_icon(show_id: &str, exit_id: &str) -> Result<TrayIcon, Box<dyn std::error::Error>> {
         let tray_menu = Menu::new();
 
-        let show_item = MenuItem::new(show_id, "Show Main Window", true, None);
-        let exit_item = MenuItem::new(exit_id, "Exit Protection", true, None);
+        let show_item = MenuItem::with_id(show_id, "Show Main Window", true, None);
+        let exit_item = MenuItem::with_id(exit_id, "Exit Protection", true, None);
 
         tray_menu.append(&show_item)?;
         tray_menu.append(&exit_item)?;
 
         let icon_rgba = vec![255u8; 32 * 32 * 4];
-        let icon = tray_icon::icon::Icon::from_rgba(icon_rgba, 32, 32)?;
+        let icon = tray_icon::Icon::from_rgba(icon_rgba, 32, 32)?;
 
         let tray = TrayIconBuilder::new()
             .with_menu(Box::new(tray_menu))
@@ -361,6 +361,10 @@ impl eframe::App for FuckScanDriveApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_tray_events(ctx);
 
+        if ctx.input(|i| i.viewport().close_requested()) {
+            *self.show_window.lock() = false;
+        }
+
         let should_show = *self.show_window.lock();
 
         if !should_show {
@@ -414,7 +418,6 @@ pub fn run_gui(state: Arc<AppState>) -> Result<(), eframe::Error> {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([900.0, 700.0])
             .with_min_inner_size([800.0, 600.0])
-            .with_close_behaviour(egui::CloseResponse::Hide)
             .with_icon(eframe::icon_data::from_png_bytes(&[]).unwrap_or_default()),
         ..Default::default()
     };
